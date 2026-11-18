@@ -1,23 +1,147 @@
 <?php
-require_once __DIR__ . '/config/db.php'; require_once __DIR__ . '/includes/functions.php'; require_login();
-if (isset($_GET['delete'])) {
-    $id=(int)$_GET['delete'];
-    try { $stmt=$pdo->prepare("DELETE FROM categories WHERE id=?"); $stmt->execute([$id]); $_SESSION['flash']='Category deleted.'; }
-    catch (PDOException $e) { $_SESSION['flash']='Cannot delete a category that still has products.'; }
-    header('Location: categories.php'); exit;
+session_start();
+include "./config/db.php";
+include "./includes/header.php";
+if ($_SERVER['REQUEST_METHOD'] == "POST") {
+  $category = trim($_POST['category']);
+  $sql = "INSERT INTO `categories`(`name`, `created_at`) VALUES ('$category', now())";
+  if (mysqli_query($conn, $sql)) {
+    $_SESSION['swal'] = true;
+    header("location: categories.php");
+    exit();
+  } else {
+    $status = "error";
+    echo "not success" . mysqli_error($conn);
+  }
 }
-if ($_SERVER['REQUEST_METHOD']==='POST') {
-    $name=trim($_POST['name']??'');
-    if ($name!=='') { try {$stmt=$pdo->prepare("INSERT INTO categories(name) VALUES(?)");$stmt->execute([$name]);$_SESSION['flash']='Category added.';} catch(PDOException $e){$_SESSION['flash']='Category name already exists.';} }
-    header('Location: categories.php'); exit;
-}
-$rows=$pdo->query("SELECT c.*, COUNT(p.id) product_count FROM categories c LEFT JOIN products p ON p.category_id=c.id GROUP BY c.id ORDER BY c.id DESC")->fetchAll();
-$pageTitle='Categories'; include __DIR__.'/includes/header.php';
+// show data to table
+$result = $conn->query("SELECT * FROM `categories` order by id DESC");
+
+// sum catagory
+$total_cate = $conn->query("SELECT COUNT(*) FROM categories")->fetch_row()[0];  //[0] យកតម្លៃទីមួយ
+
+//sum product_by_category
+$result = $conn->query("
+    SELECT categories.*, COUNT(products.id) AS total_product
+    FROM categories
+    LEFT JOIN products ON categories.id = products.category_id
+    GROUP BY categories.id
+    ORDER BY categories.id DESC
+");
 ?>
-<div class="d-flex justify-content-between align-items-center mb-3"><h2>Categories</h2></div>
-<?php if(!empty($_SESSION['flash'])): ?><div class="alert alert-info"><?= e($_SESSION['flash']); unset($_SESSION['flash']); ?></div><?php endif; ?>
-<div class="row g-3"><div class="col-lg-4"><div class="card shadow-sm border-0"><div class="card-body"><h5>Add Category</h5><form method="post"><label class="form-label">Category name</label><input class="form-control mb-3" name="name" required maxlength="150"><button class="btn btn-primary">Add Category</button></form></div></div></div>
-<div class="col-lg-8"><div class="card shadow-sm border-0"><div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>ID</th><th>Name</th><th>Products</th><th>Created</th><th>Action</th></tr></thead><tbody>
-<?php foreach($rows as $r): ?><tr><td><?= (int)$r['id'] ?></td><td><?= e($r['name']) ?></td><td><?= (int)$r['product_count'] ?></td><td><?= e($r['created_at']) ?></td><td><a class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this category?')" href="?delete=<?= (int)$r['id'] ?>">Delete</a></td></tr><?php endforeach; ?>
-<?php if(!$rows): ?><tr><td colspan="5" class="text-center text-muted">No categories yet.</td></tr><?php endif; ?></tbody></table></div></div></div></div>
-<?php include __DIR__.'/includes/footer.php'; ?>
+<!-- alert -->
+<?php if (isset($_SESSION['swal'])): unset($_SESSION['swal']); ?>
+  <script>
+    Swal.fire({
+      icon: "success",
+      title: 'Category added',
+      timer: 800,
+      showConfirmButton: false
+    });
+  </script>
+<?php endif; ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+      <h2 class="mb-0 fw-bold">Categories</h2>
+    </div>
+    <span class="badge text-bg-primary fs-6"><?= $total_cate ?> : Categories</span>
+  </div>
+  <div class="row g-4">
+    <!-- Add category -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white p-3 d-flex align-items-center gap-3">
+          <div class="bg-primary bg-opacity-10 text-primary rounded p-2 px-3">
+            <i class="fa-solid fa-tags"></i>
+          </div>
+          <h5 class="mb-0 fw-bold">Add Category</h5>
+        </div>
+        <div class="card-body p-3">
+          <form method="POST">
+            <label class="form-label fw-semibold">Category name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control mb-3 border-black" name="category" placeholder="" maxlength="150" required>
+            <button class="btn btn-primary w-100"><i class="fa-solid fa-plus me-2"></i>Add Category</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category list -->
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white p-3">
+          <h5 class="mb-0 fw-bold">All Categories</h5>
+        </div>
+        <div class="input-group">
+        <input type="text" id="searchinput" class="form-control border-black" placeholder="Search category name...">
+        <a href="./categories.php" class="btn btn-light border-black fs-5"><i class="fa-solid fa-clock-rotate-left"></i></a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle text-nowrap border-secondary-subtle">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th class="text-center">Products</th>
+                <th>Created</th>
+                <th>Updated_at</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody id="categorybody">
+              <?php while ($rows = $result->fetch_assoc()): ?>
+                <tr>
+                  <td class="text-muted"><?= $rows['id'] ?></td>
+                  <td class="fw-semibold"><?= $rows['name'] ?></td>
+                  <td class="text-center"><span class="badge text-bg-secondary"><?= $rows['total_product'] ?></span></td>
+                  <td class="text-muted small"><?= $rows['created_at'] ?></td>
+                  <td class="text-muted small"><?= $rows['updated_at'] ?></td>
+                  <td class="text-end text-nowrap">
+                    <a class="btn btn-sm btn-outline-primary" href="./edit_category.php?id=<?= $rows['id'] ?>"><i class="fa-solid fa-pen"></i>Edit</a>
+                    <a class="btn btn-sm btn-outline-danger" href="./delete_category.php?id=<?= $rows['id'] ?>"
+                      onclick="return confirm('Are you sure')"><i class="fa-solid fa-trash"></i>Delete</a>
+                  </td>
+                </tr>
+              <?php endwhile; ?>
+              <tr id="noCategory" style="display: none;">
+              <td colspan="6" class="text-center">No category found</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- search -->
+  <script>
+    document.getElementById("searchinput").addEventListener("input", function(){
+    let search = this.value.toLowerCase();
+    let found = 0;
+    document.querySelectorAll("#categorybody tr:not(#noCategory)").forEach(function (row){
+        let text = row.cells[1].textContent.toLowerCase();
+        if (text.includes(search)) {
+            row.style.display = "";
+            found++;
+        } else {
+            row.style.display = "none";
+        }
+    });
+    if(found === 0){
+      document.getElementById('noCategory').style.display = "";
+    }else{
+      document.getElementById('noCategory').style.display = "none";
+    }
+});
+  </script>
+</body>
+</html>
+<?php include "./includes/footer.php"; ?>

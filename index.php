@@ -1,23 +1,138 @@
 <?php
-require_once __DIR__ . '/config/db.php';
-require_once __DIR__ . '/includes/functions.php';
-require_login();
-$pageTitle = 'Dashboard';
-$products = (int)$pdo->query("SELECT COUNT(*) FROM products")->fetchColumn();
-$categories = (int)$pdo->query("SELECT COUNT(*) FROM categories")->fetchColumn();
-$orders = (int)$pdo->query("SELECT COUNT(*) FROM orders")->fetchColumn();
-$revenue = (float)$pdo->query("SELECT COALESCE(SUM(total),0) FROM orders")->fetchColumn();
-$recent = $pdo->query("SELECT o.id,o.receipt_no,o.total,o.created_at,u.full_name FROM orders o JOIN users u ON u.id=o.user_id ORDER BY o.id DESC LIMIT 8")->fetchAll();
-include __DIR__ . '/includes/header.php';
+include "./includes/auth.php";
+include "./config/db.php";
+//total products
+$total_pro = $conn->query("SELECT COUNT(*) AS total_pro FROM products");
+$result_pro = mysqli_fetch_assoc($total_pro);
+
+$total_pro1 = $conn->query("SELECT COUNT(*) AS total_pro FROM products")->fetch_row()[0];
+
+//total category
+$total_cate = $conn->query("SELECT COUNT(*) AS total_cate FROM categories")->fetch_row()[0];
+
+//total order or sale
+$total_order = $conn->query("SELECT COUNT(*) AS total_order FROM orders")->fetch_row()[0];
+
+//total money from order
+$total_money = $conn->query("SELECT SUM(total) AS total_money FROM orders")->fetch_row()[0];
+
+//show data table
+$result_sale = $conn->query("
+  	SELECT orders.*, users.username
+    FROM orders
+    JOIN users ON orders.user_id = users.id
+    ORDER BY orders.id DESC LIMIT 5");
+
+
+
+include "./includes/header.php";
+
 ?>
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-4"><div><h2 class="mb-1">Dashboard</h2><p class="text-muted mb-0">Welcome to your Mini Mart management system.</p></div><a href="pos.php" class="btn btn-primary"><i class="fa-solid fa-cart-shopping me-2"></i>New Sale</a></div>
-<div class="row g-3 mb-4">
-<?php foreach ([['Products',$products,'fa-box','primary'],['Categories',$categories,'fa-tags','success'],['Orders',$orders,'fa-receipt','warning'],['Total Revenue',money($revenue),'fa-sack-dollar','info']] as $c): ?>
-<div class="col-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body d-flex justify-content-between align-items-center"><div><div class="text-muted small"><?= e($c[0]) ?></div><h3 class="mb-0"><?= e($c[1]) ?></h3></div><div class="rounded-circle bg-<?= e($c[3]) ?> bg-opacity-10 text-<?= e($c[3]) ?> p-3"><i class="fa-solid <?= e($c[2]) ?> fa-lg"></i></div></div></div></div>
-<?php endforeach; ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">ផ្ទាំងគ្រប់គ្រង</h2>
+        <p class="text-muted mb-0">សូមស្វាគមន៍មកកាន់ប្រព័ន្ធគ្រប់គ្រង Mini Mart របស់អ្នក.</p>
+    </div>
+    <a href="pos.php" class="btn btn-primary"><i class="fa-solid fa-cart-shopping me-2"></i>លក់ថ្មី</a>
 </div>
-<div class="card border-0 shadow-sm"><div class="card-header bg-white d-flex justify-content-between"><strong>Recent Orders</strong><a href="orders.php">View all</a></div><div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Receipt</th><th>Cashier</th><th>Total</th><th>Date</th><th></th></tr></thead><tbody>
-<?php if (!$recent): ?><tr><td colspan="5" class="text-center text-muted py-4">No orders yet.</td></tr><?php endif; ?>
-<?php foreach ($recent as $r): ?><tr><td><?= e($r['receipt_no']) ?></td><td><?= e($r['full_name']) ?></td><td><?= money($r['total']) ?></td><td><?= e($r['created_at']) ?></td><td><a class="btn btn-sm btn-outline-primary" href="order_view.php?id=<?= (int)$r['id'] ?>">Details</a></td></tr><?php endforeach; ?>
-</tbody></table></div></div>
-<?php include __DIR__ . '/includes/footer.php'; ?>
+
+<!-- Stat cards -->
+<div class="row g-3 mb-4">
+
+    <div class="col-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="text-muted small">ទំនិញ</div>
+                    <h3 class="mb-0"><?= $result_pro['total_pro'] ?></h3>
+                </div>
+                <div class="rounded-circle bg-primary bg-opacity-10 text-primary p-3"><i class="fa-solid fa-box fa-lg"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="text-muted small">ប្រភេទ</div>
+                    <h3 class="mb-0"><?= $total_cate ?></h3>
+                </div>
+                <div class="rounded-circle bg-success bg-opacity-10 text-success p-3"><i class="fa-solid fa-tags fa-lg"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="text-muted small">ការលក់</div>
+                    <h3 class="mb-0"><?= $total_order ?></h3>
+                </div>
+                <div class="rounded-circle bg-warning bg-opacity-10 text-warning p-3"><i class="fa-solid fa-receipt fa-lg"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-6 col-xl-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="text-muted small">ចំណូលសរុប</div>
+                    <h3 class="mb-0">$<?= $total_money ?></h3>
+                </div>
+                <div class="rounded-circle bg-info bg-opacity-10 text-info p-3"><i class="fa-solid fa-sack-dollar fa-lg"></i></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Recent orders -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between">
+        <strong>ការលក់ថ្មីៗ</strong>
+        <a href="orders.php">មើលទាំងអស់</a>
+    </div>  
+    <div class="table-responsive">
+        <table class="table table-bordered align-middle text-nowrap border-secondary-subtle">
+            <thead>
+                <tr>
+                    <th>វិក្កយបត្រ</th>
+                    <th>អ្នកគិតលុយ</th>
+                    <th>សរុប</th>
+                    <th>កាលបរិច្ឆេទ</th>
+                    <th>វិក័យប័ត្រ</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php while ($row = $result_sale->fetch_assoc()): ?>
+                <tr>
+                    <td><?= $row['receipt_no'] ?></td>
+                    <td><?= $row['username'] ?></td>
+                    <td>$<?= $row['total'] ?></td>
+                    <td><?= $row['created_at'] ?></td>
+                    <td><a class="btn btn-sm btn-outline-primary" href="./order_view.php?id=<?= $row['id'] ?>">
+                    <i class="fa-solid fa-receipt me-1"></i>មើលវិក័យបត្រ</a></td>
+                </tr>
+                <?php endwhile; ?>
+                <!-- Empty state -->
+                <!-- <tr>
+                    <td colspan="5" class="text-center text-muted py-4">មិនទាន់មានការលក់នៅឡើយទេ។</td>
+                </tr> -->
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>
+<?php include "./includes/footer.php"; ?>
